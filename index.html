@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Match Portal</title>
+    <style>
+        /* ===== RESET & VARIABLES ===== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #050505;
+            --card-bg: #14171c;
+            --text: #ffffff;
+            --accent: #84cc16;
+            --live-red: #ef4444;
+            --badge-bg: rgba(0,0,0,0.7);
+            --banner-bg: rgba(153,27,27,0.15);
+            --banner-border: rgba(153,27,27,0.5);
+            --radius: 14px;
+            --touch-target: 44px;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            padding: 12px;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .app-container { max-width: 600px; margin: 0 auto; }
+        .hidden { display: none !important; }
+
+        /* ===== ADMIN CONTROLS (mobile friendly) ===== */
+        .admin-controls {
+            position: fixed;
+            top: 10px;
+            right: 12px;
+            z-index: 200;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .admin-btn, .reset-btn {
+            background: rgba(30,30,30,0.8);
+            backdrop-filter: blur(4px);
+            color: #fff;
+            border: 1px solid #444;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            touch-action: manipulation;
+            height: var(--touch-target);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .reset-btn { background: var(--live-red); }
+        .admin-btn:active, .reset-btn:active { opacity: 0.6; }
+
+        /* ===== TABS ===== */
+        .tabs-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            margin: 16px 0 20px;
+            padding-bottom: 4px;
+        }
+        .tabs-wrapper::-webkit-scrollbar { display: none; }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            white-space: nowrap;
+            padding: 0 4px;
+        }
+        .tab-btn {
+            flex: 0 0 auto;
+            background: #1a1e24;
+            border: 1px solid #333;
+            color: #aaa;
+            padding: 8px 18px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            height: var(--touch-target);
+            display: flex;
+            align-items: center;
+            transition: 0.2s;
+        }
+        .tab-btn.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        /* ===== GALLERY GRID (single column on mobile) ===== */
+        .gallery-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+        .video-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            overflow: hidden;
+            cursor: pointer;
+            transition: 0.15s;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .video-card:active { transform: scale(0.98); }
+        .image-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #0a0a0a;
+            overflow: hidden;
+        }
+        .cover-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .badge-left {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: var(--badge-bg);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.3px;
+        }
+        .card-content {
+            padding: 14px 16px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex: 1;
+            margin-right: 10px;
+        }
+        .card-footer {
+            font-size: 0.8rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .card-footer .ended-text { color: #9ca3af; }
+        .card-footer .live-text {
+            color: var(--live-red);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .live-dot-red {
+            width: 10px;
+            height: 10px;
+            background: var(--live-red);
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+            display: inline-block;
+        }
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+            display: inline-block;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Admin hide/show toggle inside card */
+        .hide-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            border: 1px solid #666;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            z-index: 5;
+            touch-action: manipulation;
+            height: 32px;
+            backdrop-filter: blur(2px);
+        }
+        .dimmed { opacity: 0.35; border: 1px solid #555; }
+
+        /* ===== PLAYER VIEW ===== */
+        .player-view {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-bottom: 20px;
+        }
+        .player-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 8px 4px;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .back-btn::before { content: "←"; font-size: 1.3rem; }
+        .viendo-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--live-bg);
+            border: 1px solid rgba(34,197,94,0.25);
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .match-title-display {
+            font-size: 1rem;
+            font-weight: 700;
+            word-break: break-word;
+        }
+        .alert-banner {
+            background: var(--banner-bg);
+            border: 1px solid var(--banner-border);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 0.8rem;
+            color: #fca5a5;
+            line-height: 1.4;
+        }
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            background: #000;
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .video-wrapper iframe,
+        .video-wrapper video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .refresh-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #555;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            align-self: center;
+            backdrop-filter: blur(4px);
+        }
+        .refresh-btn:active { opacity: 0.6; }
+
+        /* ===== RESPONSIVE TWEAKS ===== */
+        @media (min-width: 480px) {
+            .gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        }
+        @media (min-width: 768px) {
+            .gallery-grid { grid-template-columns: repeat(3, 1fr); }
+            body { padding: 24px; }
+        }
+
+        /* ===== UTILITY ===== */
+        .text-muted { color: #9ca3af; }
+        .mt-1 { margin-top: 8px; }
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<!-- ADMIN CONTROLS (mobile floating) -->
+<div class="admin-controls">
+    <button id="resetBtn" class="reset-btn hidden" onclick="resetHidden()">↺ Reset</button>
+    <button class="admin-btn" onclick="toggleAdminMode()">⚙️</button>
+</div>
+
+<div class="app-container" id="app">
+    <!-- GALLERY VIEW -->
+    <div id="galleryView">
+        <h1 style="text-align:center; font-size:1.5rem; margin-bottom:4px;">📺 Upcoming Matches</h1>
+        <div class="tabs-wrapper" id="tabsWrapper">
+            <div class="tabs" id="tabsContainer"></div>
+        </div>
+        <div class="gallery-grid" id="gridContainer"></div>
+    </div>
+
+    <!-- PLAYER VIEW -->
+    <div id="playerView" class="hidden player-view">
+        <div class="player-header">
+            <button class="back-btn" onclick="closePlayer()">Back</button>
+            <span class="viendo-badge"><span class="live-dot"></span>VIENDO</span>
+        </div>
+        <div class="match-title-display" id="matchTitle">—</div>
+        <div class="alert-banner" id="alertBanner">
+            ⚡ Stream may experience interruptions. Refresh if frozen.
+        </div>
+        <div class="video-wrapper" id="videoContainer">
+            <!-- Video will be injected here -->
+        </div>
+        <button class="refresh-btn" onclick="reloadVideo()">⟳ Refresh Stream</button>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    //  YOUR DATA – EDIT CATEGORIES AND MATCHES HERE
+    //  For iframe codes, wrap in single quotes: '<iframe ...>'
+    // ============================================================
+    const matchesByCategory = {
+        "LigaMX": [
+            { title: "embed1", date: "2026-07-31T18:00:00", img: "https://calexpo.com/wp-content/uploads/2026/06/America-vs-Chivas.jpeg", video: "vid" },
+            { title: "embed2", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+            { title: "embed3", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+            { title: "embed4", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+            { title: "embed5", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+            { title: "embed6", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+            { title: "embed7", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+            { title: "embed8", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+            { title: "embed9", date: "2026-07-31T18:00:00", img: "img", video: "vid" },
+        ],
+        "MLB": [
+            { title: "embed10", date: "2026-07-28T15:40:00", img: "img", video: 'vid' },
+            { title: "emebd11", date: "2026-07-28T19:10:00", img: "img", video: 'vid' },
+        ],
+        "SOCCER": [
+            { title: "embed12", date: "2026-07-25T20:00:00", img: "img", video: 'vid' },
+            { title: "embed13", date: "2026-07-24T17:05:00", img: "img", video: 'vid' },
+        ],
+    };
+
+    // ============================================================
+    //  ENGINE LOGIC (no need to edit below)
+    // ============================================================
+
+    // Flatten matches with category
+    const matchData = [];
+    for (const category in matchesByCategory) {
+        matchesByCategory[category].forEach(m => {
+            matchData.push({ ...m, category });
+        });
+    }
+
+    let activeMatch = null;
+    let isAdminMode = false;
+    let currentCategory = "All";
+
+    // Helper: generate embed HTML from URL/code
+    function getEmbedHtml(url) {
+        const trimmed = url.trim();
+        if (trimmed.startsWith('<iframe') || trimmed.startsWith('<script')) {
+            return trimmed;
+        }
+        if (trimmed.includes('youtube.com/watch?v=')) {
+            const id = trimmed.split('v=')[1].split('&')[0];
+            return `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen width="100%" height="100%" frameborder="0"></iframe>`;
+        }
+        if (trimmed.endsWith('.mp4')) {
+            return `<video controls autoplay playsinline style="width:100%; height:100%;"><source src="${trimmed}" type="video/mp4"></video>`;
+        }
+        return `<iframe src="${trimmed}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen width="100%" height="100%" frameborder="0" scrolling="no"></iframe>`;
+    }
+
+    // Admin mode toggle
+    function toggleAdminMode() {
+        isAdminMode = !isAdminMode;
+        document.getElementById('resetBtn').classList.toggle('hidden', !isAdminMode);
+        renderGallery();
+    }
+
+    function resetHidden() {
+        localStorage.setItem('hiddenTitles', JSON.stringify([]));
+        renderGallery();
+    }
+
+    function changeCategory(cat) {
+        currentCategory = cat;
+        renderGallery();
+        // Scroll tabs into view if needed
+        const activeTab = document.querySelector(`.tab-btn[data-cat="${cat}"]`);
+        if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+
+    function toggleMatchVisibility(title, event) {
+        if (event) event.stopPropagation();
+        let hidden = JSON.parse(localStorage.getItem('hiddenTitles') || '[]');
+        if (hidden.includes(title)) hidden = hidden.filter(t => t !== title);
+        else hidden.push(title);
+        localStorage.setItem('hiddenTitles', JSON.stringify(hidden));
+        renderGallery();
+    }
+
+    function renderGallery() {
+        const hiddenTitles = JSON.parse(localStorage.getItem('hiddenTitles') || '[]');
+        const grid = document.getElementById('gridContainer');
+        const tabs = document.getElementById('tabsContainer');
+
+        // Build tabs
+        const cats = ["All", ...Object.keys(matchesByCategory)];
+        tabs.innerHTML = cats.map(cat =>
+            `<button class="tab-btn ${currentCategory === cat ? 'active' : ''}" data-cat="${cat}" onclick="changeCategory('${cat}')">${cat}</button>`
+        ).join('');
+
+        // Build cards
+        grid.innerHTML = matchData.map(m => {
+            const isHidden = hiddenTitles.includes(m.title);
+            if (currentCategory !== "All" && m.category !== currentCategory) return '';
+            if (!isAdminMode && isHidden) return '';
+
+            let badgeHtml = '';
+            let footerHtml = '';
+
+            if (m.date) {
+                const d = new Date(m.date);
+                let hours = d.getHours();
+                const minutes = d.getMinutes().toString().padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+                const timeStr = `${hours}:${minutes} ${ampm}`;
+                badgeHtml = `🕒 ${timeStr}`;
+                footerHtml = `<div class="card-footer" data-countdown="${m.date}">⏱ --</div>`;
+            } else {
+                badgeHtml = `<span class="live-dot-red"></span> <span style="color:var(--live-red);font-weight:bold;">24/7</span>`;
+                footerHtml = `<div class="card-footer"><span class="live-text"><span class="live-dot-red"></span> 24/7 LIVE</span></div>`;
+            }
+
+            const encodedVideo = btoa(unescape(encodeURIComponent(m.video)));
+
+            return `
+            <div class="video-card ${isHidden ? 'dimmed' : ''}" onclick="${isAdminMode ? '' : `openPlayer('${encodedVideo}','${m.title}','${m.date||''}')`}">
+                ${isAdminMode ? `<button class="hide-btn" data-title="${m.title}" onclick="toggleMatchVisibility(this.dataset.title, event)">${isHidden ? 'Show' : 'Hide'}</button>` : ''}
+                <div class="image-wrapper">
+                    <img class="cover-image" src="${m.img}" loading="lazy" alt="${m.title}">
+                    <div class="badge-left">${badgeHtml}</div>
+                </div>
+                <div class="card-content">
+                    <span class="card-title">${m.title}</span>
+                    ${footerHtml}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Player controls
+    function openPlayer(encodedUrl, title, matchDate, fromHistory = false) {
+        const url = decodeURIComponent(escape(atob(encodedUrl)));
+        activeMatch = { url, title, matchDate };
+        document.getElementById('galleryView').classList.add('hidden');
+        document.getElementById('playerView').classList.remove('hidden');
+        document.getElementById('matchTitle').textContent = title;
+        // Clear old video and re-check
+        document.getElementById('videoContainer').innerHTML = '';
+        checkActiveMatchVideo();
+        if (!fromHistory) history.pushState({ view: 'player', url: encodedUrl, title, date: matchDate }, "", "#player");
+    }
+
+    function closePlayer(fromHistory = false) {
+        activeMatch = null;
+        if (!fromHistory) { history.back(); return; }
+        document.getElementById('galleryView').classList.remove('hidden');
+        document.getElementById('playerView').classList.add('hidden');
+        document.getElementById('videoContainer').innerHTML = '';
+    }
+
+    function reloadVideo() {
+        if (!activeMatch) return;
+        const container = document.getElementById('videoContainer');
+        container.innerHTML = ''; // clear
+        // Re-inject after a tiny delay to force reload
+        setTimeout(() => {
+            if (activeMatch) {
+                container.innerHTML = getEmbedHtml(activeMatch.url);
+            }
+        }, 50);
+    }
+
+    function checkActiveMatchVideo() {
+        if (!activeMatch) return;
+        const container = document.getElementById('videoContainer');
+        const banner = document.getElementById('alertBanner');
+
+        if (!activeMatch.matchDate || activeMatch.matchDate === "") {
+            banner.innerHTML = `⚡ Stream may experience interruptions. Refresh if frozen.`;
+            if (container.innerHTML === '') container.innerHTML = getEmbedHtml(activeMatch.url);
+            return;
+        }
+
+        const diff = new Date(activeMatch.matchDate).getTime() - Date.now();
+        const fifteenMin = 15 * 60 * 1000;
+
+        if (diff > fifteenMin) {
+            banner.innerHTML = `⚡ Stream will be available ~15 min before start. Refresh then.`;
+            if (container.innerHTML !== '') container.innerHTML = '';
+        } else {
+            banner.innerHTML = `⚡ Stream may experience interruptions. Refresh if frozen.`;
+            if (container.innerHTML === '') container.innerHTML = getEmbedHtml(activeMatch.url);
+        }
+    }
+
+    // Update countdowns every second
+    function updateCountdowns() {
+        document.querySelectorAll('[data-countdown]').forEach(el => {
+            const dateStr = el.dataset.countdown;
+            const diff = new Date(dateStr).getTime() - Date.now();
+            const fiveHours = 5 * 60 * 60 * 1000;
+
+            if (diff < -fiveHours) {
+                el.innerHTML = `<span class="ended-text">ENDED</span>`;
+                return;
+            }
+            if (diff < 0) {
+                el.innerHTML = `<span class="live-text"><span class="live-dot-red"></span> LIVE</span>`;
+                return;
+            }
+            const d = Math.floor(diff / (1000*60*60*24));
+            const h = String(Math.floor((diff % (1000*60*60*24)) / (1000*60*60))).padStart(2,'0');
+            const m = String(Math.floor((diff % (1000*60*60)) / (1000*60))).padStart(2,'0');
+            el.innerText = `⏱ ${d}d ${h}h ${m}m`;
+        });
+        // Also refresh player if active and video not loaded yet
+        if (activeMatch) checkActiveMatchVideo();
+    }
+
+    // ----- Initialization -----
+    renderGallery();
+    setInterval(updateCountdowns, 1000);
+    updateCountdowns();
+
+    // Handle browser back/forward
+    history.replaceState({ view: 'gallery' }, "", window.location.pathname);
+    window.addEventListener('popstate', (e) => {
+        if (e.state && e.state.view === 'player') {
+            openPlayer(e.state.url, e.state.title, e.state.date, true);
+        } else {
+            closePlayer(true);
+        }
+    });
+
+    // Optional: close player with swipe down (simple touch event)
+    let touchStartY = 0;
+    document.getElementById('playerView').addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.getElementById('playerView').addEventListener('touchmove', (e) => {
+        const delta = e.touches[0].clientY - touchStartY;
+        if (delta > 80 && document.getElementById('playerView').classList.contains('hidden') === false) {
+            closePlayer();
+        }
+    }, { passive: true });
+</script>
+</body>
+</html>
